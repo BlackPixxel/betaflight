@@ -59,7 +59,6 @@ extern "C" {
 
     extern quaternion q;
     extern float rMat[3][3];
-    extern bool attitudeIsEstablished;
 
     PG_REGISTER(rcControlsConfig_t, rcControlsConfig, PG_RC_CONTROLS_CONFIG, 0);
     PG_REGISTER(barometerConfig_t, barometerConfig, PG_BAROMETER_CONFIG, 0);
@@ -165,17 +164,15 @@ TEST(FlightImuTest, TestSmallAngle)
 
     // given
     imuConfigMutable()->small_angle = 25;
-    imuConfigure(0, 0);
-    attitudeIsEstablished = true;
 
     // and
     memset(rMat, 0.0, sizeof(float) * 9);
 
     // when
-    imuComputeRotationMatrix();
+    imuUpdateEulerAngles();
 
     // expect
-    EXPECT_EQ(true, isUpright());
+    EXPECT_EQ(0, STATE(SMALL_ANGLE));
 
     // given
     rMat[0][0] = r1;
@@ -184,19 +181,19 @@ TEST(FlightImuTest, TestSmallAngle)
     rMat[2][2] = r1;
 
     // when
-    imuComputeRotationMatrix();
+    imuUpdateEulerAngles();
 
     // expect
-    EXPECT_EQ(true, isUpright());
+    EXPECT_EQ(SMALL_ANGLE, STATE(SMALL_ANGLE));
 
     // given
     memset(rMat, 0.0, sizeof(float) * 9);
 
     // when
-    imuComputeRotationMatrix();
+    imuUpdateEulerAngles();
 
     // expect
-    EXPECT_EQ(true, isUpright());
+    EXPECT_EQ(0, STATE(SMALL_ANGLE));
 }
 
 // STUBS
@@ -249,5 +246,4 @@ bool gyroGetAccumulationAverage(float *) { return false; }
 bool accGetAccumulationAverage(float *) { return false; }
 void mixerSetThrottleAngleCorrection(int) {};
 bool gpsRescueIsRunning(void) { return false; }
-bool isFixedWing(void) { return false; }
 }

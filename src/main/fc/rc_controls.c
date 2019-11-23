@@ -37,7 +37,7 @@
 
 #include "drivers/camera_control.h"
 
-#include "config/config.h"
+#include "fc/config.h"
 #include "fc/core.h"
 #include "fc/rc.h"
 #include "fc/runtime_config.h"
@@ -63,6 +63,7 @@
 #include "sensors/barometer.h"
 #include "sensors/battery.h"
 #include "sensors/gyro.h"
+#include "sensors/sensors.h"
 
 #include "rc_controls.h"
 
@@ -241,9 +242,8 @@ void processRcStickPositions()
 #endif
 
 #ifdef USE_BARO
-        if (sensors(SENSOR_BARO)) {
-            baroSetGroundLevel();
-        }
+        if (sensors(SENSOR_BARO))
+            baroSetCalibrationCycles(10); // calibrate baro to new ground level (10 * 25 ms = ~250 ms non blocking)
 #endif
 
         return;
@@ -278,7 +278,7 @@ void processRcStickPositions()
 #ifdef USE_ACC
     if (rcSticks == THR_HI + YAW_LO + PIT_LO + ROL_CE) {
         // Calibrating Acc
-        accStartCalibration();
+        accSetCalibrationCycles(CALIBRATING_ACC_CYCLES);
         return;
     }
 #endif
@@ -396,5 +396,5 @@ int32_t getRcStickDeflection(int32_t axis, uint16_t midrc) {
 void rcControlsInit(void)
 {
     analyzeModeActivationConditions();
-    isUsingSticksToArm = !isModeActivationConditionPresent(BOXARM) && systemConfig()->enableStickArming;
+    isUsingSticksToArm = !isModeActivationConditionPresent(BOXARM);
 }

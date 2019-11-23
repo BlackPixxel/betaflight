@@ -38,7 +38,7 @@
 #include "drivers/system.h"
 #include "drivers/usb_io.h"
 
-#include "config/config.h"
+#include "fc/config.h"
 
 #include "io/transponder_ir.h"
 

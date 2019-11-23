@@ -37,7 +37,7 @@
 
 #include "config/feature.h"
 
-#include "config/config.h"
+#include "fc/config.h"
 
 #include "flight/failsafe.h"
 
@@ -91,7 +91,6 @@ CMS_Menu cmsx_menuFailsafe = {
 #endif
     .onEnter = cmsx_Failsafe_onEnter,
     .onExit = cmsx_Failsafe_onExit,
-    .checkRedirect = NULL,
     .entries = cmsx_menuFailsafeEntries
 };
 

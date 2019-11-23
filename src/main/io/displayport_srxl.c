@@ -130,10 +130,7 @@ static const displayPortVTable_t srxlVTable = {
     .heartbeat = srxlHeartbeat,
     .resync = srxlResync,
     .isSynced = srxlIsSynced,
-    .txBytesFree = srxlTxBytesFree,
-    .layerSupported = NULL,
-    .layerSelect = NULL,
-    .layerCopy = NULL,
+    .txBytesFree = srxlTxBytesFree
 };
 
 displayPort_t *displayPortSrxlInit()

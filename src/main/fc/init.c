@@ -83,7 +83,7 @@
 #include "drivers/vtx_table.h"
 
 #include "fc/board_info.h"
-#include "config/config.h"
+#include "fc/config.h"
 #include "fc/dispatch.h"
 #include "fc/init.h"
 #include "fc/rc_controls.h"
@@ -164,6 +164,7 @@
 #include "sensors/esc_sensor.h"
 #include "sensors/gyro.h"
 #include "sensors/initialisation.h"
+#include "sensors/sensors.h"
 
 #include "telemetry/telemetry.h"
 
@@ -752,43 +753,16 @@ void init(void)
     //The OSD need to be initialised after GYRO to avoid GYRO initialisation failure on some targets
 
     if (featureIsEnabled(FEATURE_OSD)) {
-        osdDisplayPortDevice_e device = osdConfig()->displayPortDevice;
-
-        switch(device) {
-
-        case OSD_DISPLAYPORT_DEVICE_AUTO:
-            FALLTHROUGH;
-
 #if defined(USE_MAX7456)
-        case OSD_DISPLAYPORT_DEVICE_MAX7456:
-            // If there is a max7456 chip for the OSD configured and detectd then use it.
-            osdDisplayPort = max7456DisplayPortInit(vcdProfile());
-            if (osdDisplayPort || device == OSD_DISPLAYPORT_DEVICE_MAX7456) {
-                break;
-            }
-            FALLTHROUGH;
+        // If there is a max7456 chip for the OSD then use it
+        osdDisplayPort = max7456DisplayPortInit(vcdProfile());
+#elif defined(USE_CMS) && defined(USE_MSP_DISPLAYPORT) && defined(USE_OSD_OVER_MSP_DISPLAYPORT) // OSD over MSP; not supported (yet)
+        osdDisplayPort = displayPortMspInit();
 #endif
-
-#if defined(USE_CMS) && defined(USE_MSP_DISPLAYPORT) && defined(USE_OSD_OVER_MSP_DISPLAYPORT)
-        case OSD_DISPLAYPORT_DEVICE_MSP:
-            osdDisplayPort = displayPortMspInit();
-            if (osdDisplayPort || device == OSD_DISPLAYPORT_DEVICE_MSP) {
-                break;
-            }
-            FALLTHROUGH;
-#endif
-
-        // Other device cases can be added here
-
-        case OSD_DISPLAYPORT_DEVICE_NONE:
-        default:
-            break;
-        }
-
-        // osdInit will register with CMS by itself.
+        // osdInit  will register with CMS by itself.
         osdInit(osdDisplayPort);
     }
-#endif // USE_OSD
+#endif
 
 #if defined(USE_CMS) && defined(USE_MSP_DISPLAYPORT)
     // If BFOSD is not active, then register MSP_DISPLAYPORT as a CMS device.
@@ -874,12 +848,12 @@ void init(void)
 
 #ifdef USE_ACC
     if (mixerConfig()->mixerMode == MIXER_GIMBAL) {
-        accStartCalibration();
+        accSetCalibrationCycles(CALIBRATING_ACC_CYCLES);
     }
 #endif
     gyroStartCalibration(false);
 #ifdef USE_BARO
-    baroStartCalibration();
+    baroSetCalibrationCycles(CALIBRATING_BARO_CYCLES);
 #endif
 
 #if defined(USE_VTX_COMMON) || defined(USE_VTX_CONTROL)
@@ -914,6 +888,8 @@ void init(void)
     // TODO - not implemented yet
     timerStart();
 #endif
+
+    ENABLE_STATE(SMALL_ANGLE);
 
 #ifdef SOFTSERIAL_LOOPBACK
     // FIXME this is a hack, perhaps add a FUNCTION_LOOPBACK to support it properly
@@ -952,7 +928,7 @@ void init(void)
 
     setArmingDisabled(ARMING_DISABLED_BOOT_GRACE_TIME);
 
-    tasksInit();
+    fcTasksInit();
 
     systemState |= SYSTEM_STATE_READY;
 }

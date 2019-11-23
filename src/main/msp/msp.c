@@ -44,7 +44,6 @@
 #include "common/streambuf.h"
 #include "common/utils.h"
 
-#include "config/config.h"
 #include "config/config_eeprom.h"
 #include "config/feature.h"
 
@@ -68,6 +67,7 @@
 #include "drivers/vtx_table.h"
 
 #include "fc/board_info.h"
+#include "fc/config.h"
 #include "fc/controlrate_profile.h"
 #include "fc/core.h"
 #include "fc/rc.h"
@@ -110,7 +110,6 @@
 #include "pg/beeper.h"
 #include "pg/board.h"
 #include "pg/gyrodev.h"
-#include "pg/max7456.h"
 #include "pg/motor.h"
 #include "pg/rx.h"
 #include "pg/rx_spi.h"
@@ -123,14 +122,16 @@
 
 #include "scheduler/scheduler.h"
 
+#include "sensors/battery.h"
+
 #include "sensors/acceleration.h"
 #include "sensors/barometer.h"
-#include "sensors/battery.h"
 #include "sensors/boardalignment.h"
-#include "sensors/compass.h"
 #include "sensors/esc_sensor.h"
+#include "sensors/compass.h"
 #include "sensors/gyro.h"
 #include "sensors/rangefinder.h"
+#include "sensors/sensors.h"
 
 #include "telemetry/telemetry.h"
 
@@ -183,6 +184,18 @@ typedef enum {
 #ifdef USE_VTX_TABLE
 static bool vtxTableNeedsInit = false;
 #endif
+
+static bool featureMaskIsCopied = false;
+static uint32_t featureMaskCopy;
+
+static uint32_t getFeatureMask(void)
+{
+    if (featureMaskIsCopied) {
+        return featureMaskCopy;
+    } else {
+        return featureConfig()->enabledFeatures;
+    }
+}
 
 static int mspDescriptor = 0;
 
@@ -631,7 +644,7 @@ static bool mspCommonProcessOutCommand(uint8_t cmdMSP, sbuf_t *dst, mspPostProce
         break;
 
     case MSP_FEATURE_CONFIG:
-        sbufWriteU32(dst, featureConfig()->enabledFeatures);
+        sbufWriteU32(dst, getFeatureMask());
         break;
 
 #ifdef USE_BEEPER
@@ -795,19 +808,13 @@ static bool mspCommonProcessOutCommand(uint8_t cmdMSP, sbuf_t *dst, mspPostProce
 #define OSD_FLAGS_RESERVED_1            (1 << 2)
 #define OSD_FLAGS_RESERVED_2            (1 << 3)
 #define OSD_FLAGS_OSD_HARDWARE_MAX_7456 (1 << 4)
-#define OSD_FLAGS_MAX7456_DETECTED      (1 << 5)
 
         uint8_t osdFlags = 0;
 #if defined(USE_OSD)
         osdFlags |= OSD_FLAGS_OSD_FEATURE;
 #endif
 #ifdef USE_MAX7456
-        if (max7456Config()->csTag && max7456Config()->spiDevice) {
-            osdFlags |= OSD_FLAGS_OSD_HARDWARE_MAX_7456;
-            if (max7456IsDeviceDetected()) {
-                osdFlags |= OSD_FLAGS_MAX7456_DETECTED;
-            }
-        }
+        osdFlags |= OSD_FLAGS_OSD_HARDWARE_MAX_7456;
 #endif
 
         sbufWriteU8(dst, osdFlags);
@@ -1071,7 +1078,7 @@ static bool mspProcessOutCommand(uint8_t cmdMSP, sbuf_t *dst)
         break;
 
     case MSP_RC:
-        for (int i = 0; i < rxRuntimeState.channelCount; i++) {
+        for (int i = 0; i < rxRuntimeConfig.channelCount; i++) {
             sbufWriteU16(dst, rcData[i]);
         }
         break;
@@ -1245,9 +1252,6 @@ static bool mspProcessOutCommand(uint8_t cmdMSP, sbuf_t *dst)
         sbufWriteU8(dst, gpsConfig()->sbasMode);
         sbufWriteU8(dst, gpsConfig()->autoConfig);
         sbufWriteU8(dst, gpsConfig()->autoBaud);
-        // Added in API version 1.43
-        sbufWriteU8(dst, gpsConfig()->gps_set_home_point_once);
-        sbufWriteU8(dst, gpsConfig()->gps_ublox_use_galileo);
         break;
 
     case MSP_RAW_GPS:
@@ -1287,11 +1291,6 @@ static bool mspProcessOutCommand(uint8_t cmdMSP, sbuf_t *dst)
         sbufWriteU16(dst, gpsRescueConfig()->throttleHover);
         sbufWriteU8(dst,  gpsRescueConfig()->sanityChecks);
         sbufWriteU8(dst,  gpsRescueConfig()->minSats);
-        // Added in API version 1.43
-        sbufWriteU16(dst, gpsRescueConfig()->ascendRate);
-        sbufWriteU16(dst, gpsRescueConfig()->descendRate);
-        sbufWriteU8(dst, gpsRescueConfig()->allowArmingWithoutFix);
-        sbufWriteU8(dst, gpsRescueConfig()->altitudeMode);
         break;
 
     case MSP_GPS_RESCUE_PIDS:
@@ -1375,7 +1374,7 @@ static bool mspProcessOutCommand(uint8_t cmdMSP, sbuf_t *dst)
         break;
 
     case MSP_RXFAIL_CONFIG:
-        for (int i = 0; i < rxRuntimeState.channelCount; i++) {
+        for (int i = 0; i < rxRuntimeConfig.channelCount; i++) {
             sbufWriteU8(dst, rxFailsafeChannelConfigs(i)->mode);
             sbufWriteU16(dst, RXFAIL_STEP_TO_CHANNEL_VALUE(rxFailsafeChannelConfigs(i)->step));
         }
@@ -2169,11 +2168,6 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, uint8_t cmdMSP, 
         gpsConfigMutable()->sbasMode = sbufReadU8(src);
         gpsConfigMutable()->autoConfig = sbufReadU8(src);
         gpsConfigMutable()->autoBaud = sbufReadU8(src);
-        if (sbufBytesRemaining(src) >= 2) {
-            // Added in API version 1.43
-            gpsConfigMutable()->gps_set_home_point_once = sbufReadU8(src);
-            gpsConfigMutable()->gps_ublox_use_galileo = sbufReadU8(src);
-        }
         break;
 
 #ifdef USE_GPS_RESCUE
@@ -2187,13 +2181,6 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, uint8_t cmdMSP, 
         gpsRescueConfigMutable()->throttleHover = sbufReadU16(src);
         gpsRescueConfigMutable()->sanityChecks = sbufReadU8(src);
         gpsRescueConfigMutable()->minSats = sbufReadU8(src);
-        if (sbufBytesRemaining(src) >= 6) {
-            // Added in API version 1.43
-            gpsRescueConfigMutable()->ascendRate = sbufReadU16(src);
-            gpsRescueConfigMutable()->descendRate = sbufReadU16(src);
-            gpsRescueConfigMutable()->allowArmingWithoutFix = sbufReadU8(src);
-            gpsRescueConfigMutable()->altitudeMode = sbufReadU8(src);
-        }
         break;
 
     case MSP_SET_GPS_RESCUE_PIDS:
@@ -2530,7 +2517,7 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, uint8_t cmdMSP, 
 #ifdef USE_ACC
     case MSP_ACC_CALIBRATION:
         if (!ARMING_FLAG(ARMED))
-            accStartCalibration();
+            accSetCalibrationCycles(CALIBRATING_ACC_CYCLES);
         break;
 #endif
 
@@ -2544,7 +2531,11 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, uint8_t cmdMSP, 
             return MSP_RESULT_ERROR;
         }
 
-        writeEEPROM();
+        if (featureMaskIsCopied) {
+            writeEEPROMWithFeatures(featureMaskCopy);
+        } else {
+            writeEEPROM();
+        }
         readEEPROM();
 
 #ifdef USE_VTX_TABLE
@@ -2807,7 +2798,11 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, uint8_t cmdMSP, 
         break;
 #endif // USE_GPS
     case MSP_SET_FEATURE_CONFIG:
-        featureConfigReplace(sbufReadU32(src));
+        featureMaskCopy = sbufReadU32(src);
+        if (!featureMaskIsCopied) {
+            featureMaskIsCopied = true;
+        }
+
         break;
 
 #ifdef USE_BEEPER
@@ -3286,9 +3281,7 @@ static mspResult_e mspCommonProcessInCommand(mspDescriptor_t srcDesc, uint8_t cm
                 font_data[i] = sbufReadU8(src);
             }
             // !!TODO - replace this with a device independent implementation
-            if (!max7456WriteNvm(addr, font_data)) {
-                return MSP_RESULT_ERROR;
-            }
+            max7456WriteNvm(addr, font_data);
         }
         break;
 #else

@@ -25,7 +25,7 @@ extern "C" {
     #include "pg/pg.h"
     #include "pg/pg_ids.h"
     #include "pg/rx.h"
-    #include "config/config.h"
+    #include "fc/config.h"
     #include "fc/controlrate_profile.h"
     #include "fc/core.h"
     #include "fc/rc_controls.h"
@@ -69,11 +69,10 @@ extern "C" {
     uint32_t targetPidLooptime;
     bool cmsInMenu = false;
     float axisPID_P[3], axisPID_I[3], axisPID_D[3], axisPIDSum[3];
-    rxRuntimeState_t rxRuntimeState = {};
+    rxRuntimeConfig_t rxRuntimeConfig = {};
     uint16_t GPS_distanceToHome = 0;
     int16_t GPS_directionToHome = 0;
     acc_t acc = {};
-    bool mockIsUpright = false;
 }
 
 uint32_t simulationFeatureFlags = 0;
@@ -130,7 +129,7 @@ TEST(ArmingPreventionTest, CalibrationPowerOnGraceAngleThrottleArmSwitch)
 
     // given
     // quad is level
-    mockIsUpright = true;
+    ENABLE_STATE(SMALL_ANGLE);
 
     // when
     updateArmingStatus();
@@ -191,7 +190,7 @@ TEST(ArmingPreventionTest, ArmingGuardRadioLeftOnAndArmed)
 
     // and
     rcData[THROTTLE] = 1000;
-    mockIsUpright = true;
+    ENABLE_STATE(SMALL_ANGLE);
 
     // when
     updateActivatedModes();
@@ -269,7 +268,7 @@ TEST(ArmingPreventionTest, Prearm)
 
     // given
     rcData[THROTTLE] = 1000;
-    mockIsUpright = true;
+    ENABLE_STATE(SMALL_ANGLE);
 
     // when
     updateActivatedModes();
@@ -312,7 +311,7 @@ TEST(ArmingPreventionTest, RadioTurnedOnAtAnyTimeArmed)
 
     // and
     rcData[THROTTLE] = 1000;
-    mockIsUpright = true;
+    ENABLE_STATE(SMALL_ANGLE);
 
     // and
     // RX has no link to radio
@@ -379,7 +378,7 @@ TEST(ArmingPreventionTest, In3DModeAllowArmingWhenEnteringThrottleDeadband)
 
     // and
     rcData[THROTTLE] = 1400;
-    mockIsUpright = true;
+    ENABLE_STATE(SMALL_ANGLE);
     simulationHaveRx = true;
 
     // and
@@ -448,7 +447,7 @@ TEST(ArmingPreventionTest, When3DModeDisabledThenNormalThrottleArmingConditionAp
     // and
     // safe throttle value for 3D mode
     rcData[THROTTLE] = 1500;
-    mockIsUpright = true;
+    ENABLE_STATE(SMALL_ANGLE);
     simulationHaveRx = true;
 
     // and
@@ -546,7 +545,7 @@ TEST(ArmingPreventionTest, WhenUsingSwitched3DModeThenNormalThrottleArmingCondit
 
     // and
     rcData[THROTTLE] = 1000;
-    mockIsUpright = true;
+    ENABLE_STATE(SMALL_ANGLE);
     simulationHaveRx = true;
 
     // and
@@ -642,7 +641,7 @@ TEST(ArmingPreventionTest, GPSRescueWithoutFixPreventsArm)
     rcData[THROTTLE] = 1000;
     rcData[AUX1] = 1000;
     rcData[AUX2] = 1000;
-    mockIsUpright = true;
+    ENABLE_STATE(SMALL_ANGLE);
 
     // when
     updateActivatedModes();
@@ -756,7 +755,7 @@ TEST(ArmingPreventionTest, GPSRescueSwitchPreventsArm)
     rcData[THROTTLE] = 1000;
     rcData[AUX1] = 1000;
     rcData[AUX2] = 1800; // Start out with rescue enabled
-    mockIsUpright = true;
+    ENABLE_STATE(SMALL_ANGLE);
 
     // when
     updateActivatedModes();
@@ -868,7 +867,7 @@ TEST(ArmingPreventionTest, ParalyzeOnAtBoot)
     rcData[THROTTLE] = 1000;
     rcData[AUX1] = 1000;
     rcData[AUX2] = 1800; // Paralyze on at boot
-    mockIsUpright = true;
+    ENABLE_STATE(SMALL_ANGLE);
 
     // when
     updateActivatedModes();
@@ -919,7 +918,7 @@ TEST(ArmingPreventionTest, Paralyze)
     rcData[AUX1] = 1000;
     rcData[AUX2] = 1800; // Start out with paralyze enabled
     rcData[AUX3] = 1000;
-    mockIsUpright = true;
+    ENABLE_STATE(SMALL_ANGLE);
 
     // when
     updateActivatedModes();
@@ -1071,8 +1070,8 @@ extern "C" {
     void blackboxUpdate(timeUs_t) {}
     void transponderUpdate(timeUs_t) {}
     void GPS_reset_home_position(void) {}
-    void accStartCalibration(void) {}
-    void baroSetGroundLevel(void) {}
+    void accSetCalibrationCycles(uint16_t) {}
+    void baroSetCalibrationCycles(uint16_t) {}
     void changePidProfile(uint8_t) {}
     void changeControlRateProfile(uint8_t) {}
     void dashboardEnablePageCycling(void) {}
@@ -1091,6 +1090,4 @@ extern "C" {
     float getCosTiltAngle(void) { return 0.0f; }
     void pidSetItermReset(bool) {}
     void applyAccelerometerTrimsDelta(rollAndPitchTrims_t*) {}
-    bool isFixedWing(void) { return false; }
-    bool isUpright(void) { return mockIsUpright; }
 }

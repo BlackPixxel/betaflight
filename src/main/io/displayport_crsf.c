@@ -138,10 +138,7 @@ static const displayPortVTable_t crsfDisplayPortVTable = {
     .heartbeat = crsfHeartbeat,
     .resync = crsfResync,
     .isSynced = crsfIsSynced,
-    .txBytesFree = crsfTxBytesFree,
-    .layerSupported = NULL,
-    .layerSelect = NULL,
-    .layerCopy = NULL,
+    .txBytesFree = crsfTxBytesFree
 };
 
 crsfDisplayPortScreen_t *crsfDisplayPortScreen(void)

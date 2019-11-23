@@ -25,7 +25,7 @@ extern "C" {
     #include "pg/pg.h"
     #include "pg/pg_ids.h"
     #include "pg/rx.h"
-    #include "config/config.h"
+    #include "fc/config.h"
     #include "fc/controlrate_profile.h"
     #include "fc/core.h"
     #include "fc/rc_controls.h"
@@ -71,7 +71,7 @@ extern "C" {
     uint32_t targetPidLooptime;
     bool cmsInMenu = false;
     float axisPID_P[3], axisPID_I[3], axisPID_D[3], axisPIDSum[3];
-    rxRuntimeState_t rxRuntimeState = {};
+    rxRuntimeConfig_t rxRuntimeConfig = {};
 }
 
 uint32_t simulationFeatureFlags = 0;
@@ -164,8 +164,8 @@ extern "C" {
     void blackboxUpdate(timeUs_t) {}
     void transponderUpdate(timeUs_t) {}
     void GPS_reset_home_position(void) {}
-    void accStartCalibration(void) {}
-    void baroSetGroundLevel(void) {}
+    void accSetCalibrationCycles(uint16_t) {}
+    void baroSetCalibrationCycles(uint16_t) {}
     void changePidProfile(uint8_t) {}
     void changeControlRateProfile(uint8_t) {}
     void dashboardEnablePageCycling(void) {}
@@ -178,6 +178,4 @@ extern "C" {
     void osdSuppressStats(bool) {}
     void pidSetItermReset(bool) {}
     void applyAccelerometerTrimsDelta(rollAndPitchTrims_t*) {}
-    bool isFixedWing(void) { return false; }
-    bool isUpright(void) { return true; }
 }

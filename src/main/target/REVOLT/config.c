@@ -29,7 +29,7 @@
 
 #include "telemetry/telemetry.h"
 
-#include "config/config.h"
+#include "fc/config.h"
 
 
 #ifdef USE_TARGET_CONFIG

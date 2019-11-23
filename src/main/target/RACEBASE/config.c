@@ -25,7 +25,7 @@
 
 #ifdef USE_TARGET_CONFIG
 
-#include "config/config.h"
+#include "fc/config.h"
 
 #include "pg/rx.h"
 

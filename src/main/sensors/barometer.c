@@ -48,9 +48,12 @@
 
 #include "fc/runtime_config.h"
 
+#include "sensors/barometer.h"
 #include "sensors/sensors.h"
 
-#include "barometer.h"
+#ifdef USE_HARDWARE_REVISION_DETECTION
+#include "hardware_revision.h"
+#endif
 
 baro_t baro;                        // barometer access functions
 
@@ -135,11 +138,6 @@ static int32_t baroTemperature = 0;
 static int32_t baroGroundAltitude = 0;
 static int32_t baroGroundPressure = 8*101325;
 static uint32_t baroPressureSum = 0;
-
-#define CALIBRATING_BARO_CYCLES 200 // 10 seconds init_delay + 200 * 25 ms = 15 seconds before ground pressure settles
-#define SET_GROUND_LEVEL_BARO_CYCLES 10 // calibrate baro to new ground level (10 * 25 ms = ~250 ms non blocking)
-
-static bool baroReady = false;
 
 void baroPreInit(void)
 {
@@ -280,20 +278,12 @@ bool isBaroCalibrationComplete(void)
     return calibratingB == 0;
 }
 
-static void baroSetCalibrationCycles(uint16_t calibrationCyclesRequired)
+void baroSetCalibrationCycles(uint16_t calibrationCyclesRequired)
 {
     calibratingB = calibrationCyclesRequired;
 }
 
-void baroStartCalibration(void)
-{
-    baroSetCalibrationCycles(CALIBRATING_BARO_CYCLES);
-}
-
-void baroSetGroundLevel(void)
-{
-    baroSetCalibrationCycles(SET_GROUND_LEVEL_BARO_CYCLES);
-}
+static bool baroReady = false;
 
 #define PRESSURE_SAMPLES_MEDIAN 3
 

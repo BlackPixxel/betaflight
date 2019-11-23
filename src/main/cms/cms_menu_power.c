@@ -37,7 +37,7 @@
 #include "sensors/current.h"
 #include "sensors/voltage.h"
 
-#include "config/config.h"
+#include "fc/config.h"
 
 voltageMeterSource_e batteryConfig_voltageMeterSource;
 currentMeterSource_e batteryConfig_currentMeterSource;
@@ -126,7 +126,6 @@ CMS_Menu cmsx_menuPower = {
 #endif
     .onEnter = cmsx_Power_onEnter,
     .onExit = cmsx_Power_onExit,
-    .checkRedirect = NULL,
     .entries = cmsx_menuPowerEntries
 };
 

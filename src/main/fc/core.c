@@ -49,7 +49,7 @@
 #include "drivers/time.h"
 #include "drivers/transponder_ir.h"
 
-#include "config/config.h"
+#include "fc/config.h"
 #include "fc/controlrate_profile.h"
 #include "fc/core.h"
 #include "fc/rc.h"
@@ -197,7 +197,7 @@ static bool isCalibrating(void)
 #ifdef USE_LAUNCH_CONTROL
 bool canUseLaunchControl(void)
 {
-    if (!isFixedWing()
+    if (!STATE(FIXED_WING)
         && !isUsingSticksForArming()     // require switch arming for safety
         && IS_RC_MODE_ACTIVE(BOXLAUNCHCONTROL)
         && (!featureIsEnabled(FEATURE_MOTOR_STOP) || airmodeIsEnabled())  // can't use when motors are stopped
@@ -213,61 +213,6 @@ void resetArmingDisabled(void)
 {
     lastArmingDisabledReason = 0;
 }
-
-#ifdef USE_ACC
-static bool accNeedsCalibration(void)
-{
-    if (sensors(SENSOR_ACC)) {
-
-        // Check to see if the ACC has already been calibrated
-        if (accelerometerConfig()->accZero.values.calibrationCompleted ||
-            accelerometerConfig()->accZero.values.roll != 0 ||
-            accelerometerConfig()->accZero.values.pitch != 0 ||
-            accelerometerConfig()->accZero.values.yaw != 0) {
-
-            return false;
-        }
-
-        // We've determined that there's a detected ACC that has not
-        // yet been calibrated. Check to see if anything is using the
-        // ACC that would be affected by the lack of calibration.
-
-        // Check for any configured modes that use the ACC
-        if (isModeActivationConditionPresent(BOXANGLE) ||
-            isModeActivationConditionPresent(BOXHORIZON) ||
-            isModeActivationConditionPresent(BOXGPSRESCUE) ||
-            isModeActivationConditionPresent(BOXCAMSTAB) ||
-            isModeActivationConditionPresent(BOXCALIB) ||
-            isModeActivationConditionPresent(BOXACROTRAINER)) {
-
-            return true;
-        }
-
-        // Launch Control only requires the ACC if a angle limit is set
-        if (isModeActivationConditionPresent(BOXLAUNCHCONTROL) && currentPidProfile->launchControlAngleLimit) {
-            return true;
-        }
-
-#ifdef USE_OSD
-        // Check for any enabled OSD elements that need the ACC
-        if (featureIsEnabled(FEATURE_OSD)) {
-            if (osdNeedsAccelerometer()) {
-                return true;
-            }
-        }
-#endif
-
-#ifdef USE_GPS_RESCUE
-        // Check if failsafe will use GPS Rescue
-        if (failsafeConfig()->failsafe_procedure == FAILSAFE_PROCEDURE_GPS_RESCUE) {
-            return true;
-        }
-#endif
-    }
-
-    return false;
-}
-#endif
 
 void updateArmingStatus(void)
 {
@@ -320,7 +265,7 @@ void updateArmingStatus(void)
             unsetArmingDisabled(ARMING_DISABLED_THROTTLE);
         }
 
-        if (!isUpright() && !IS_RC_MODE_ACTIVE(BOXFLIPOVERAFTERCRASH)) {
+        if (!STATE(SMALL_ANGLE) && !IS_RC_MODE_ACTIVE(BOXFLIPOVERAFTERCRASH)) {
             setArmingDisabled(ARMING_DISABLED_ANGLE);
         } else {
             unsetArmingDisabled(ARMING_DISABLED_ANGLE);
@@ -382,14 +327,6 @@ void updateArmingStatus(void)
         if (IS_RC_MODE_ACTIVE(BOXPARALYZE)) {
             setArmingDisabled(ARMING_DISABLED_PARALYZE);
         }
-
-#ifdef USE_ACC
-        if (accNeedsCalibration()) {
-            setArmingDisabled(ARMING_DISABLED_ACC_CALIBRATION);
-        } else {
-            unsetArmingDisabled(ARMING_DISABLED_ACC_CALIBRATION);
-        }
-#endif
 
         if (!isUsingSticksForArming()) {
           /* Ignore ARMING_DISABLED_CALIBRATING if we are going to calibrate gyro on first arm */
@@ -627,7 +564,7 @@ static void updateInflightCalibrationState(void)
 }
 
 #if defined(USE_GPS) || defined(USE_MAG)
-static void updateMagHold(void)
+void updateMagHold(void)
 {
     if (fabsf(rcCommand[YAW]) < 15 && FLIGHT_MODE(MAG_MODE)) {
         int16_t dif = DECIDEGREES_TO_DEGREES(attitude.values.yaw) - magHold;
@@ -636,7 +573,7 @@ static void updateMagHold(void)
         if (dif >= +180)
             dif -= 360;
         dif *= -GET_DIRECTION(rcControlsConfig()->yaw_control_reversed);
-        if (isUpright()) {
+        if (STATE(SMALL_ANGLE)) {
             rcCommand[YAW] -= dif * currentPidProfile->pid[PID_MAG].P / 30;    // 18 deg
         }
     } else
@@ -795,7 +732,7 @@ bool processRx(timeUs_t currentTimeUs)
         && !runawayTakeoffCheckDisabled
         && !flipOverAfterCrashActive
         && !runawayTakeoffTemporarilyDisabled
-        && !isFixedWing()) {
+        && !STATE(FIXED_WING)) {
 
         // Determine if we're in "flight"
         //   - motors running
@@ -880,7 +817,7 @@ bool processRx(timeUs_t currentTimeUs)
     const timeUs_t autoDisarmDelayUs = armingConfig()->auto_disarm_delay * 1e6;
     if (ARMING_FLAG(ARMED)
         && featureIsEnabled(FEATURE_MOTOR_STOP)
-        && !isFixedWing()
+        && !STATE(FIXED_WING)
         && !featureIsEnabled(FEATURE_3D)
         && !airmodeIsEnabled()
         && !FLIGHT_MODE(GPS_RESCUE_MODE)  // disable auto-disarm when GPS Rescue is active
@@ -1082,7 +1019,7 @@ static FAST_CODE void subTaskPidController(timeUs_t currentTimeUs)
     // and gyro rate for any axis is above the limit for at least the activate delay period.
     // If so, disarm for safety
     if (ARMING_FLAG(ARMED)
-        && !isFixedWing()
+        && !STATE(FIXED_WING)
         && pidConfig()->runaway_takeoff_prevention
         && !runawayTakeoffCheckDisabled
         && !flipOverAfterCrashActive
@@ -1130,8 +1067,8 @@ static FAST_CODE_NOINLINE void subTaskPidSubprocesses(timeUs_t currentTimeUs)
         startTime = micros();
     }
 
-#if defined(USE_GPS) || defined(USE_MAG)
-    if (sensors(SENSOR_GPS) || sensors(SENSOR_MAG)) {
+#ifdef USE_MAG
+    if (sensors(SENSOR_MAG)) {
         updateMagHold();
     }
 #endif

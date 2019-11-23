@@ -25,7 +25,7 @@
 #include "drivers/time.h"
 #include "drivers/timer.h"
 
-#include "config/config.h"
+#include "fc/config.h"
 #include "fc/controlrate_profile.h"
 #include "fc/core.h"
 #include "fc/rc_adjustments.h"
@@ -536,7 +536,7 @@ static bool bstSlaveProcessWriteCommand(uint8_t bstWriteCommand)
 #if defined(USE_ACC)
         case BST_ACC_CALIBRATION:
            if (!ARMING_FLAG(ARMED))
-               accStartCalibration();
+               accSetCalibrationCycles(CALIBRATING_ACC_CYCLES);
            break;
 #endif
         case BST_MAG_CALIBRATION:
@@ -553,7 +553,8 @@ static bool bstSlaveProcessWriteCommand(uint8_t bstWriteCommand)
             readEEPROM();
             break;
         case BST_SET_FEATURE:
-            featureConfigReplace(bstRead32()); // features bitmap
+            featureDisableAll();
+            featureEnable(bstRead32()); // features bitmap
 #ifdef SERIALRX_UART
             if (featureIsEnabled(FEATURE_RX_SERIAL)) {
                 serialConfigMutable()->portConfigs[SERIALRX_UART].functionMask = FUNCTION_RX_SERIAL;

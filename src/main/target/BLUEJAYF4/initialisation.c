@@ -29,7 +29,7 @@
 #include "drivers/bus_spi.h"
 #include "drivers/io.h"
 
-#include "config/config.h"
+#include "fc/config.h"
 
 #include "io/serial.h"
 

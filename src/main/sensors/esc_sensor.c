@@ -47,7 +47,7 @@
 
 #include "esc_sensor.h"
 
-#include "config/config.h"
+#include "fc/config.h"
 
 #include "flight/mixer.h"
 

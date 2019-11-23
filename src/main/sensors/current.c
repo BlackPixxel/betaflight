@@ -279,7 +279,7 @@ void currentMeterMSPRefresh(timeUs_t currentTimeUs)
     if (cmp32(currentTimeUs, streamRequestAt) > 0) {
         streamRequestAt = currentTimeUs + ((1000 * 1000) / 10); // 10hz
 
-        mspSerialPush(SERIAL_PORT_NONE, MSP_ANALOG, NULL, 0, MSP_DIRECTION_REQUEST);
+        mspSerialPush(MSP_ANALOG, NULL, 0, MSP_DIRECTION_REQUEST);
     }
 }
 

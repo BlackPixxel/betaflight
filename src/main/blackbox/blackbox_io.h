@@ -57,7 +57,7 @@ bool blackboxDeviceEndLog(bool retainLog);
 
 bool isBlackboxDeviceFull(void);
 bool isBlackboxDeviceWorking(void);
-int32_t blackboxGetLogNumber(void);
+unsigned int blackboxGetLogNumber(void);
 
 void blackboxReplenishHeaderBudget(void);
 blackboxBufferReserveStatus_e blackboxDeviceReserveBufferSpace(int32_t bytes);
