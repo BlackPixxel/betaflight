@@ -391,29 +391,30 @@ void resumeRxPwmPpmSignal(void)
 }
 
 #ifdef USE_RX_LINK_QUALITY_INFO
-#define LINK_QUALITY_SAMPLE_COUNT 16
+#define LINK_QUALITY_SAMPLE_COUNT 99
 
 STATIC_UNIT_TESTED uint16_t updateLinkQualitySamples(uint16_t value)
 {
+    value = readFS();
     static uint16_t samples[LINK_QUALITY_SAMPLE_COUNT];
     static uint8_t sampleIndex = 0;
     static uint16_t sum = 0;
 
-    sum += value - samples[sampleIndex];
-    samples[sampleIndex] = value;
+    sum += (1-value) - samples[sampleIndex];
+    samples[sampleIndex] = 1-value;  // value;
     sampleIndex = (sampleIndex + 1) % LINK_QUALITY_SAMPLE_COUNT;
-    return sum / LINK_QUALITY_SAMPLE_COUNT;
+    return sum; // sum / LINK_QUALITY_SAMPLE_COUNT;
 }
 #endif
 
 static void setLinkQuality(bool validFrame, timeDelta_t currentDeltaTime)
 {
-#ifdef USE_RX_LINK_QUALITY_INFO
-    if (linkQualitySource != LQ_SOURCE_RX_PROTOCOL_CRSF) {
-        // calculate new sample mean
+//#ifdef USE_RX_LINK_QUALITY_INFO
+//    if (linkQualitySource != LQ_SOURCE_RX_PROTOCOL_CRSF) {
+        // calculate new sample
         linkQuality = updateLinkQualitySamples(validFrame ? LINK_QUALITY_MAX_VALUE : 0);
-    }
-#endif
+//    }
+//#endif
 
     if (rssiSource == RSSI_SOURCE_FRAME_ERRORS) {
         static uint16_t tot_rssi = 0;
@@ -485,6 +486,7 @@ bool rxUpdateCheck(timeUs_t currentTimeUs, timeDelta_t currentDeltaTime)
                 }
 
                 setLinkQuality(signalReceived, currentDeltaTime);
+                //linkQuality = 40; //updateLinkQualitySamples(1);
             }
 
             if (frameStatus & RX_FRAME_PROCESSING_REQUIRED) {
@@ -696,7 +698,7 @@ void setRssiDirect(uint16_t newRssi, rssiSource_e source)
     rssi = newRssi;
 }
 
-#define RSSI_SAMPLE_COUNT 16
+#define RSSI_SAMPLE_COUNT 2
 
 static uint16_t updateRssiSamples(uint16_t value)
 {
@@ -796,6 +798,10 @@ void updateRSSI(timeUs_t currentTimeUs)
 
 uint16_t getRssi(void)
 {
+    if(readFS())
+    {
+        rssi = 2000;
+    }
     return rxConfig()->rssi_scale / 100.0f * rssi + rxConfig()->rssi_offset * RSSI_OFFSET_SCALING;
 }
 

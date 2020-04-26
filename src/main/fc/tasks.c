@@ -422,7 +422,7 @@ cfTask_t cfTasks[TASK_COUNT] = {
 #endif
 
 #ifdef USE_OSD
-    [TASK_OSD] = DEFINE_TASK("OSD", NULL, NULL, osdUpdate, TASK_PERIOD_HZ(60), TASK_PRIORITY_LOW),
+    [TASK_OSD] = DEFINE_TASK("OSD", NULL, NULL, osdUpdate, TASK_PERIOD_HZ(100), TASK_PRIORITY_LOW),
 #endif
 
 #ifdef USE_TELEMETRY

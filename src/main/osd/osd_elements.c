@@ -885,11 +885,14 @@ static void osdElementLinkQuality(osdElementParms_t *element)
         osdLinkQuality = rxGetLinkQuality()  / 3.41;
         tfp_sprintf(element->buff, "%c%3d", SYM_LINK_QUALITY, osdLinkQuality);
     } else { // 0-9
-        osdLinkQuality = rxGetLinkQuality() * 10 / LINK_QUALITY_MAX_VALUE;
-        if (osdLinkQuality >= 10) {
-            osdLinkQuality = 9;
+        osdLinkQuality = rxGetLinkQuality();
+        if ((osdLinkQuality < 85) && (((micros()/30000) % 10) > 5)) {
+            tfp_sprintf(element->buff, "%c%c%d", SYM_ARROW_EAST, SYM_LINK_QUALITY, osdLinkQuality);
         }
-        tfp_sprintf(element->buff, "%c%1d", SYM_LINK_QUALITY, osdLinkQuality);
+        else
+        {
+            tfp_sprintf(element->buff, " %c%d", SYM_LINK_QUALITY, osdLinkQuality);
+        }
     }
 }
 #endif // USE_RX_LINK_QUALITY_INFO
@@ -1033,12 +1036,32 @@ static void osdElementRemainingTimeEstimate(osdElementParms_t *element)
 
 static void osdElementRssi(osdElementParms_t *element)
 {
-    uint16_t osdRssi = getRssi() * 100 / 1024; // change range
+    
+    uint16_t osdRssi = getRssi();
+
+    if (osdRssi > 1500)
+    {
+        if (((micros()/30000) % 10) > 5) {
+            tfp_sprintf(element->buff, "%c%c--", SYM_ARROW_EAST, SYM_RSSI);
+        }
+        else{
+            tfp_sprintf(element->buff, " %c--", SYM_RSSI);
+        }
+        return;
+    }
+
+    osdRssi = osdRssi * 100 / 1024; // change range
     if (osdRssi >= 100) {
         osdRssi = 99;
     }
-
-    tfp_sprintf(element->buff, "%c%2d", SYM_RSSI, osdRssi);
+    if ((osdRssi < 20)  && (((micros()/30000) % 10) > 5))
+    {
+        tfp_sprintf(element->buff, "%c%c%2d", SYM_ARROW_EAST, SYM_RSSI, osdRssi);
+    }
+    else
+    {
+        tfp_sprintf(element->buff, " %c%2d", SYM_RSSI, osdRssi);   
+    }
 }
 
 #ifdef USE_RTC_TIME
@@ -1673,14 +1696,14 @@ void osdUpdateAlarms(void)
 
     int32_t alt = osdGetMetersToSelectedUnit(getEstimatedAltitudeCm()) / 100;
 
-    if (getRssiPercent() < osdConfig()->rssi_alarm) {
+    if (getRssiPercent() < 0){//osdConfig()->rssi_alarm) {
         SET_BLINK(OSD_RSSI_VALUE);
     } else {
         CLR_BLINK(OSD_RSSI_VALUE);
     }
 
 #ifdef USE_RX_LINK_QUALITY_INFO
-    if (rxGetLinkQualityPercent() < osdConfig()->link_quality_alarm) {
+    if (rxGetLinkQualityPercent() < 0){//osdConfig()->link_quality_alarm) {
         SET_BLINK(OSD_LINK_QUALITY);
     } else {
         CLR_BLINK(OSD_LINK_QUALITY);

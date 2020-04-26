@@ -62,6 +62,8 @@ static uint16_t crc;
 static uint8_t sumd[SUMD_BUFFSIZE] = { 0, };
 static uint8_t sumdChannelCount;
 
+static IO_t fsPin;
+
 // Receive ISR callback
 static void sumdDataReceive(uint16_t c, void *data)
 {
@@ -154,8 +156,18 @@ static uint16_t sumdReadRawRC(const rxRuntimeConfig_t *rxRuntimeConfig, uint8_t 
     return sumdChannels[chan] / 8;
 }
 
+bool readFS(void)
+{
+    return IORead(fsPin);
+}
+
 bool sumdInit(const rxConfig_t *rxConfig, rxRuntimeConfig_t *rxRuntimeConfig)
 {
+    fsPin = IOGetByTag(IO_TAG(PA1));
+
+    IOInit(fsPin, OWNER_SONAR_TRIGGER, 0);
+    IOConfigGPIO(fsPin, IOCFG_IN_FLOATING);
+
     UNUSED(rxConfig);
 
     rxRuntimeConfig->channelCount = MIN(SUMD_MAX_CHANNEL, MAX_SUPPORTED_RC_CHANNEL_COUNT);
