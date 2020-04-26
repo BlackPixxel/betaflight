@@ -36,7 +36,7 @@
 
 #include "drivers/vtx_common.h"
 
-#include "fc/config.h"
+#include "config/config.h"
 
 #include "io/vtx_tramp.h"
 #include "io/vtx.h"
@@ -45,16 +45,8 @@ char trampCmsStatusString[31] = "- -- ---- ----";
 //                               m bc ffff tppp
 //                               01234567890123
 
-
-static bool trampDeviceConfigured = false;
-
 void trampCmsUpdateStatusString(void)
 {
-    if (!trampDeviceConfigured) {
-        strncpy(trampCmsStatusString, "TRAMP NOT CONFIGURED", sizeof(trampCmsStatusString));
-        return;
-    }
-
     vtxDevice_t *vtxDevice = vtxCommonDevice();
 
     if (vtxTableBandCount == 0 || vtxTablePowerLevels == 0) {
@@ -103,68 +95,49 @@ static OSD_TAB_t trampCmsEntPower;
 
 static void trampCmsUpdateFreqRef(void)
 {
-    if (trampDeviceConfigured) {
-        if (trampCmsBand > 0 && trampCmsChan > 0) {
-            trampCmsFreqRef = vtxCommonLookupFrequency(vtxCommonDevice(), trampCmsBand, trampCmsChan);
-        }
-    } else {
-        trampCmsFreqRef = 0;
+    if (trampCmsBand > 0 && trampCmsChan > 0) {
+        trampCmsFreqRef = vtxCommonLookupFrequency(vtxCommonDevice(), trampCmsBand, trampCmsChan);
     }
 }
 
-static long trampCmsConfigBand(displayPort_t *pDisp, const void *self)
+static const void *trampCmsConfigBand(displayPort_t *pDisp, const void *self)
 {
     UNUSED(pDisp);
     UNUSED(self);
 
-    if (trampDeviceConfigured) {
-        if (trampCmsBand == 0) {
-            // Bounce back
-            trampCmsBand = 1;
-        } else {
-            trampCmsUpdateFreqRef();
-        }
-    } else {
-        trampCmsBand = 0;
-    }
+    if (trampCmsBand == 0)
+        // Bounce back
+        trampCmsBand = 1;
+    else
+        trampCmsUpdateFreqRef();
 
-    return 0;
+    return NULL;
 }
 
-static long trampCmsConfigChan(displayPort_t *pDisp, const void *self)
+static const void *trampCmsConfigChan(displayPort_t *pDisp, const void *self)
 {
     UNUSED(pDisp);
     UNUSED(self);
 
-    if (trampDeviceConfigured) {
-        if (trampCmsChan == 0) {
-            // Bounce back
-            trampCmsChan = 1;
-        } else {
-            trampCmsUpdateFreqRef();
-        }
-    } else {
-        trampCmsChan = 0;
-    }
+    if (trampCmsChan == 0)
+        // Bounce back
+        trampCmsChan = 1;
+    else
+        trampCmsUpdateFreqRef();
 
-    return 0;
+    return NULL;
 }
 
-static long trampCmsConfigPower(displayPort_t *pDisp, const void *self)
+static const void *trampCmsConfigPower(displayPort_t *pDisp, const void *self)
 {
     UNUSED(pDisp);
     UNUSED(self);
 
-    if (trampDeviceConfigured) {
-        if (trampCmsPower == 0) {
-            // Bounce back
-            trampCmsPower = 1;
-        }
-    } else {
-        trampCmsPower = 0;
-    }
+    if (trampCmsPower == 0)
+        // Bounce back
+        trampCmsPower = 1;
 
-    return 0;
+    return NULL;
 }
 
 static OSD_INT16_t trampCmsEntTemp = { &trampTemperature, -100, 300, 0 };
@@ -175,25 +148,22 @@ static const char * const trampCmsPitModeNames[] = {
 
 static OSD_TAB_t trampCmsEntPitMode = { &trampCmsPitMode, 2, trampCmsPitModeNames };
 
-static long trampCmsSetPitMode(displayPort_t *pDisp, const void *self)
+static const void *trampCmsSetPitMode(displayPort_t *pDisp, const void *self)
 {
     UNUSED(pDisp);
     UNUSED(self);
 
-    if (trampDeviceConfigured) {
-        if (trampCmsPitMode == 0) {
-            // Bouce back
-            trampCmsPitMode = 1;
-        } else {
-            trampSetPitMode(trampCmsPitMode - 1);
-        }
+    if (trampCmsPitMode == 0) {
+        // Bouce back
+        trampCmsPitMode = 1;
     } else {
-        trampCmsPitMode = 0;
+        trampSetPitMode(trampCmsPitMode - 1);
     }
-    return 0;
+
+    return NULL;
 }
 
-static long trampCmsCommence(displayPort_t *pDisp, const void *self)
+static const void *trampCmsCommence(displayPort_t *pDisp, const void *self)
 {
     UNUSED(pDisp);
     UNUSED(self);
@@ -219,78 +189,52 @@ static long trampCmsCommence(displayPort_t *pDisp, const void *self)
 static bool trampCmsInitSettings(void)
 {
     vtxDevice_t *device = vtxCommonDevice();
-    trampDeviceConfigured = false;
 
     if (!device) {
         return false;
     }
 
-    vtxDevType_e vtxType = vtxCommonGetDeviceType(device);
-    trampDeviceConfigured = (vtxType == VTXDEV_TRAMP);
+    vtxCommonGetBandAndChannel(device, &trampCmsBand, &trampCmsChan);
 
-    if (trampDeviceConfigured) {
-        vtxCommonGetBandAndChannel(device, &trampCmsBand, &trampCmsChan);
+    trampCmsUpdateFreqRef();
+    trampCmsPitMode = trampPitMode + 1;
 
-        trampCmsUpdateFreqRef();
-        trampCmsPitMode = trampPitMode + 1;
-
-        if (trampConfiguredPower > 0) {
-            if (!vtxCommonGetPowerIndex(vtxCommonDevice(), &trampCmsPower)) {
-                trampCmsPower = 1;
-            }
+    if (trampConfiguredPower > 0) {
+        if (!vtxCommonGetPowerIndex(vtxCommonDevice(), &trampCmsPower)) {
+            trampCmsPower = 1;
         }
-        trampCmsEntBand.max = vtxTableBandCount;
-        trampCmsEntChan.max = vtxTableChannelCount;
-        trampCmsEntPower.max = vtxTablePowerLevels;
-    } else {
-        trampCmsPitMode = 0;
-        trampCmsBand = 0;
-        trampCmsChan = 0;
-        trampCmsPower = 0;
-
-        trampCmsEntBand.max = 0;
-        trampCmsEntBand.names = 0;
-
-        trampCmsEntChan.max = 0;
-        trampCmsEntChan.names = 0;
-
-        trampCmsEntPower.max = 0;
-
-        trampCmsUpdateStatusString();
     }
+
     trampCmsEntBand.val = &trampCmsBand;
+    trampCmsEntBand.max = vtxTableBandCount;
     trampCmsEntBand.names = vtxTableBandNames;
 
     trampCmsEntChan.val = &trampCmsChan;
+    trampCmsEntChan.max = vtxTableChannelCount;
     trampCmsEntChan.names = vtxTableChannelNames;
 
     trampCmsEntPower.val = &trampCmsPower;
+    trampCmsEntPower.max = vtxTablePowerLevels;
     trampCmsEntPower.names = vtxTablePowerLabels;
 
     return true;
 }
 
-static long trampCmsOnEnter(void)
+static const void *trampCmsOnEnter(displayPort_t *pDisp)
 {
+    UNUSED(pDisp);
+
     if (!trampCmsInitSettings()) {
         return MENU_CHAIN_BACK;
     }
 
-    return 0;
-}
-
-static long trampCmsCommenceOnEnter(void)
-{
-    if (!trampDeviceConfigured) {
-        return MENU_CHAIN_BACK;
-    }
-    return 0;
+    return NULL;
 }
 
 static const OSD_Entry trampCmsMenuCommenceEntries[] = {
     { "CONFIRM", OME_Label,   NULL,          NULL, 0 },
     { "YES",     OME_Funcall, trampCmsCommence, NULL, 0 },
-    { "BACK",    OME_Back, NULL, NULL, 0 },
+    { "NO",    OME_Back, NULL, NULL, 0 },
     { NULL,      OME_END, NULL, NULL, 0 }
 };
 
@@ -299,8 +243,9 @@ static CMS_Menu trampCmsMenuCommence = {
     .GUARD_text = "XVTXTRC",
     .GUARD_type = OME_MENU,
 #endif
-    .onEnter = trampCmsCommenceOnEnter,
+    .onEnter = NULL,
     .onExit = NULL,
+    .onDisplayUpdate = NULL,
     .entries = trampCmsMenuCommenceEntries,
 };
 
@@ -328,6 +273,7 @@ CMS_Menu cmsx_menuVtxTramp = {
 #endif
     .onEnter = trampCmsOnEnter,
     .onExit = NULL,
+    .onDisplayUpdate = NULL,
     .entries = trampMenuEntries,
 };
 #endif
